@@ -446,14 +446,30 @@ function parseTriplesToGraph(triples) {
 }
 
 async function initGraph() {
+  document.getElementById("loadingHint").innerText = "正在加载数据分片 (1/15)...";
+  
   try {
-    const response = await fetch('三元组.json');
-    if (!response.ok) throw new Error('未能成功加载 三元组.json 文件');
-    let rawText = await response.text();
-    let rawTriples = JSON.parse(rawText.replace(/\\(?!["\\\/bfnrtu])/g, "\\\\").replace(/[\u0000-\u001F]+/g, " "));
-    const graphData = parseTriplesToGraph(rawTriples);
+    let allTriples = [];
+    const totalParts = 15; // 如果你切成了15个文件，这里就写15
+    
+    for (let i = 1; i <= totalParts; i++) {
+      document.getElementById("loadingHint").innerText = `正在加载数据分片 (${i}/${totalParts})...`;
+      
+      const response = await fetch(`data_part_${i}.json`);
+      if (!response.ok) throw new Error(`未能加载 data_part_${i}.json`);
+      
+      let rawText = await response.text();
+      // 这里保留你之前处理非法字符的正则逻辑
+      let partData = JSON.parse(rawText.replace(/\\(?!["\\\/bfnrtu])/g, "\\\\").replace(/[\u0000-\u001F]+/g, " "));
+      
+      // 如果每个文件里本身就是数组结构，这里用 concat 合并
+      allTriples = allTriples.concat(partData);
+    }
+    
     document.getElementById("loadingHint").style.display = "none";
-    loadGraphData(graphData);
+    loadGraphData({ nodes: [], links: [] }); // 这一步只是为了初始化，下面加载数据
+    loadGraphData(parseTriplesToGraph(allTriples));
+    
   } catch (err) {
     console.error("❌ 加载错误:", err);
     document.getElementById("loadingHint").textContent = `加载失败: ${err.message}`;
