@@ -446,20 +446,33 @@ function parseTriplesToGraph(triples) {
 }
 
 async function initGraph() {
-  let allTriples = [];
-  for (let i = 1; i <= 15; i++) {
-    const response = await fetch(`data_part_${i}.json`);
-    let rawText = await response.text(); 
+  const loadingHint = document.getElementById("loadingHint");
+  loadingHint.innerText = "正在修复路径格式...";
+  
+  try {
+    let allTriples = [];
+    for (let i = 1; i <= 15; i++) {
+      const response = await fetch(`data_part_${i}.json`);
+      if (!response.ok) continue;
+      
+      let rawText = await response.text();
+      
+      // 🚀 核心：将单个 "\" 替换为双反斜杠 "\\"
+      // 这条正则的意思是：匹配所有后面没有跟随特殊转义字符的反斜杠，并把它变成 "\\"
+      // 这样 JSON.parse 就会把它识别为普通的文本 "\"，而不会报错
+      let cleanText = rawText.replace(/\\(?!["\\\/bfnrtu])/g, "\\\\");
+      
+      let partData = JSON.parse(cleanText);
+      allTriples = allTriples.concat(partData);
+    }
     
-    // 关键：在这里应用你之前的“救命”正则，确保它在变成 JSON 对象前被修补好
-    let cleanedText = rawText.replace(/\\(?!["\\\/bfnrtu])/g, "\\\\")
-                             .replace(/[\u0000-\u001F]+/g, " ");
-                             
-    // 只有清洗完了，才 parse
-    let partData = JSON.parse(cleanedText); 
-    allTriples = allTriples.concat(partData);
+    loadingHint.style.display = "none";
+    loadGraphData(parseTriplesToGraph(allTriples));
+    
+  } catch (err) {
+    console.error("加载错误:", err);
+    loadingHint.innerHTML = `<span style="color:red">数据解析失败: ${err.message}</span>`;
   }
-  loadGraphData(parseTriplesToGraph(allTriples));
 }
 
 function loadGraphData(data){
