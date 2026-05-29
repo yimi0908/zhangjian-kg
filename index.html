@@ -446,36 +446,36 @@ function parseTriplesToGraph(triples) {
 }
 
 async function initGraph() {
-  document.getElementById("loadingHint").innerText = "正在加载数据分片...";
+  const loadingHint = document.getElementById("loadingHint");
+  loadingHint.innerText = "正在加载张謇知识图谱...";
   
   try {
     let allTriples = [];
-    const totalParts = 15; 
+    const totalParts = 15; // 确保你仓库里确实有 15 个文件
     
     for (let i = 1; i <= totalParts; i++) {
+      loadingHint.innerText = `正在加载分片 (${i}/${totalParts})...`;
+      
       const response = await fetch(`data_part_${i}.json`);
-      if (!response.ok) throw new Error(`加载 data_part_${i}.json 失败`);
+      if (!response.ok) throw new Error(`无法获取 data_part_${i}.json`);
       
-      let rawText = await response.text();
+      // 直接解析为 JSON 对象，利用浏览器原生引擎，速度最快、最不易出错
+      const partData = await response.json();
       
-      // 核心改进：在解析前手动清洗
-      // 1. 去掉可能的非法字符
-      // 2. 确保它是一个合法的 JSON 数组
-      let cleanText = rawText.trim();
-      if (cleanText.startsWith('[')) cleanText = cleanText.substring(1);
-      if (cleanText.endsWith(']')) cleanText = cleanText.substring(0, cleanText.length - 1);
-      
-      // 此时 cleanText 应该是用 "}," 隔开的对象列表
-      let partData = JSON.parse(`[${cleanText}]`);
+      // 合并数据
       allTriples = allTriples.concat(partData);
     }
     
-    document.getElementById("loadingHint").style.display = "none";
-    loadGraphData(parseTriplesToGraph(allTriples));
+    // 数据载入完成
+    loadingHint.style.display = "none";
+    
+    // 构建图谱
+    const graphData = parseTriplesToGraph(allTriples);
+    loadGraphData(graphData);
     
   } catch (err) {
     console.error("❌ 加载错误:", err);
-    document.getElementById("loadingHint").textContent = `解析失败: ${err.message}`;
+    loadingHint.innerHTML = `<span style="color:red">加载失败: ${err.message}</span>`;
   }
 }
 
