@@ -531,13 +531,18 @@ function buildLinkTypeList(linkTypeSet) {
     row.append("div").attr("class", "swatch").style("background", "#7f8c8d"); 
     row.append("div").attr("class", "type-name").text(t);
     row.append("div").attr("class", "type-count").text(counts[t].toLocaleString());
-    row.on("click", () => {
-      // 单选关系类型：只显示该关系相关的节点和边
-      state.linkTypeFilter.clear();
-      state.linkTypeFilter.add(t);
-      d3.selectAll("#linkTypeList .type-item").classed("off", function(){ return this.dataset.rel !== t; });
-      applyLinkTypeFilter(t);
-    });
+row.on("click", () => {
+
+  if (state.linkTypeFilter.has(t)) {
+    state.linkTypeFilter.delete(t);
+  } else {
+    state.linkTypeFilter.add(t);
+  }
+
+  row.classed("off", !state.linkTypeFilter.has(t));
+
+  applyFilter(false);
+});
   });
 }
 
