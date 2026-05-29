@@ -526,23 +526,29 @@ function buildLinkTypeList(linkTypeSet) {
   const counts = {};
   state.raw.links.forEach(l => { const t = l.label || "关联"; counts[t] = (counts[t] || 0) + 1; });
   const list = d3.select("#linkTypeList").html("");
+  
   Array.from(linkTypeSet).sort((a,b) => counts[b] - counts[a]).forEach(t => {
-    const row = list.append("div").attr("class", "type-item").attr("data-rel", t);
+    const row = list.append("div")
+                    .attr("class", `type-item ${state.linkTypeFilter.has(t) ? "" : "off"}`) // 初始化时根据状态添加 off
+                    .attr("data-rel", t);
+                    
     row.append("div").attr("class", "swatch").style("background", "#7f8c8d"); 
     row.append("div").attr("class", "type-name").text(t);
     row.append("div").attr("class", "type-count").text(counts[t].toLocaleString());
-row.on("click", () => {
 
-  state.linkTypeFilter.clear();
-  state.linkTypeFilter.add(t);
-
-  document.querySelectorAll("#linkTypeList .type-item")
-    .forEach(el => el.classList.add("off"));
-
-  row.node().classList.remove("off");
-
-  applyLinkTypeFilter(t);
-});
+    // 🚀 【关键修改】：改为 Toggle 多选逻辑
+    row.on("click", () => {
+      if (state.linkTypeFilter.has(t)) {
+        state.linkTypeFilter.delete(t);
+        row.classed("off", true); // UI 变灰
+      } else {
+        state.linkTypeFilter.add(t);
+        row.classed("off", false); // UI 变亮
+      }
+      
+      // 重新执行通用过滤，而不是调用旧的单选过滤函数
+      applyFilter(false);
+    });
   });
 }
 
