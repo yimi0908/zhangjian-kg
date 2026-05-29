@@ -1,0 +1,1274 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<title>张謇八大资源知识图谱</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<style>
+  :root{
+    /* ==================== 🎨 完美对齐 107.png 的新中式清爽底色 ==================== */
+    --bg:#faf9f5;             /* 纯净高雅的宣纸冷米白底 */
+    --panel:rgba(255,255,255,0.85);
+    --panel-border:rgba(20,40,80,0.06);
+    --ink:#2c3e50;            /* 稳重的深书墨色文字 */
+    --ink-soft:#5a6b7c;
+    --muted:#95a5a6;
+    
+    /* 🎯 终极同步：完美换回 33.png 的古籍松烟墨绿色 */
+    --accent:#2d5c4b;         
+    --gold:#c89b3c;
+    --shadow:0 8px 24px rgba(150,155,170,0.05), 0 2px 6px rgba(150,155,170,0.03);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;height:100%;font-family:"PingFang SC","Noto Sans SC",sans-serif;color:var(--ink);background:var(--bg)}
+  body {
+    background: var(--bg);
+    overflow:hidden;
+  }
+
+  /* Top Bar */
+  .topbar{
+    position:fixed;top:0;left:0;right:0;height:64px;z-index:10;
+    display:flex;align-items:center;justify-content:space-between;
+    padding:0 24px;
+    background:rgba(250,249,245,0.8);
+    backdrop-filter:blur(12px);
+    -webkit-backdrop-filter:blur(12px);
+    border-bottom:1px solid var(--panel-border);
+  }
+/* 修改后的品牌区域样式 */
+  .brand { display: flex; align-items: center; gap: 16px; }
+  
+  .seal {
+    width: 47px; 
+    height: 52px; 
+    border-radius: 7px;        /* 如果想要圆形，改为 50% */
+    background-image: url('zhangjian.jpg'); /* 替换为你的图片文件名 */
+    background-size: cover;    /* 保证图片铺满且不变形 */
+    background-position: center;
+    background-repeat: no-repeat;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+    /* 移除掉原本的颜色、渐变和字体属性 */
+    border: 1px solid rgba(0,0,0,0.05);
+  }
+
+  .title-block h1 { margin: 0; font-size: 16px; font-weight: 600; letter-spacing: .5px; }
+  .title-block .sub { font-size: 12px; color: var(--muted); margin-top: 2px; letter-spacing: .8px; }
+
+  .search-wrap{flex:1;display:flex;justify-content:center;padding:0 24px}
+  .search{ position:relative;width:min(520px,100%); }
+  .search input{
+    width:100%;height:38px;border-radius:6px;border:1px solid rgba(0,0,0,0.08);
+    background:#fff;padding:0 44px 0 14px;font-size:13px;color:var(--ink);
+    box-shadow:var(--shadow);outline:none;transition:all .2s;
+  }
+  .search input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(45,92,75,0.08)}
+  .search button{
+    position:absolute;right:4px;top:4px;width:30px;height:30px;border-radius:4px;
+    border:none;background:var(--accent);color:#fff;cursor:pointer;
+    display:grid;place-items:center;
+  }
+  .topbar .actions{display:flex;gap:8px}
+  .btn{
+    height:34px;padding:0 14px;border-radius:6px;border:1px solid var(--panel-border);
+    background:#fff;color:var(--ink);font-size:13px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;
+    box-shadow:var(--shadow);transition:all .1s;
+  }
+  .btn:hover{background:#fbfbfa}
+  .btn.primary{background:var(--accent);color:#fff;border:none}
+  .btn.ghost{background:transparent;border:1px solid var(--panel-border);color:var(--ink-soft)}
+  .btn.ghost:hover{background:rgba(0,0,0,0.02)}
+
+  /* Layout */
+  .stage{position:fixed;inset:64px 0 0 0;display:flex}
+  .left{
+    width:280px;padding:18px;display:flex;flex-direction:column;gap:14px;
+    border-right:1px solid var(--panel-border);
+    background:rgba(250,249,245,0.6);backdrop-filter:blur(10px);
+    overflow-y:auto;
+  }
+  .right{
+    width:320px;padding:18px;display:flex;flex-direction:column;gap:14px;
+    border-left:1px solid var(--panel-border);
+    background:rgba(250,249,245,0.6);backdrop-filter:blur(10px);
+    overflow-y:auto;
+  }
+  .canvas-wrap{flex:1;position:relative;overflow:hidden}
+  svg.graph{width:100%;height:100%;display:block;cursor:grab;position:absolute;top:0;left:0;z-index:2;}
+
+  /* Cards */
+  .card{
+    background:#fff;border:1px solid var(--panel-border);border-radius:8px;
+    padding:14px;box-shadow:var(--shadow);
+  }
+  .card h3{margin:0 0 10px 0;font-size:12px;letter-spacing:1px;color:var(--ink-soft);font-weight:600;display:flex;align-items:center;gap:6px}
+  .card h3::before{content:"";width:4px;height:12px;border-radius:2px;background:var(--accent)}
+
+  /* Stat cards on top */
+  .stats{ position:absolute;top:18px;left:18px;display:flex;gap:12px;z-index:5;pointer-events:none; }
+  .stat{
+    pointer-events:auto;background:#fff;border:1px solid var(--panel-border);
+    border-radius:8px;padding:10px 14px;min-width:150px;box-shadow:var(--shadow);
+  }
+  .stat .label{font-size:11px;color:var(--muted);letter-spacing:1px}
+  .stat .value{font-size:20px;font-weight:700;margin-top:2px;color:var(--ink);font-variant-numeric:tabular-nums;}
+  .stat .delta{font-size:11px;color:var(--accent);margin-top:2px}
+
+  /* 悬浮底部工具栏样式 */
+  .floatbar{
+    position:absolute;bottom:18px;left:50%;transform:translateX(-50%);
+    display:flex;gap:4px;padding:4px;border-radius:8px;
+    background:#fff;border:1px solid var(--panel-border);box-shadow:var(--shadow);z-index:5;
+  }
+  .icon-btn{
+    width:32px;height:32px;border-radius:4px;border:none;background:transparent;
+    color:var(--ink-soft);cursor:pointer;display:grid;place-items:center;transition:all .15s;
+  }
+  .icon-btn:hover{background:#f4f4f2;color:var(--accent)}
+
+  /* 筛选列表通用样式 */
+  .type-list{display:flex;flex-direction:column;gap:4px;max-height:180px;overflow-y:auto}
+  .type-item{display:flex;align-items:center;gap:10px;padding:6px 8px;border-radius:4px;cursor:pointer;transition:background .15s}
+  .type-item:hover{background:rgba(0,0,0,0.02)}
+  .type-item.off{opacity:.35}
+  .swatch{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+  .type-name{font-size:12px;flex:1;color:var(--ink-soft);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .type-count{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
+
+  /* Search results rendering */
+  .results { display:flex; flex-direction:column; gap:4px; max-height:180px; overflow-y:auto; }
+  .result { display:flex; align-items:center; gap:8px; padding:6px; border-radius:4px; cursor:pointer; font-size:12px; transition:background .15s; }
+  .result:hover { background:rgba(0,0,0,0.02); }
+  .rdot { width:6px; height:6px; border-radius:50%; flex-shrink:0; }
+  .rname { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--ink); }
+  .rtype { font-size:11px; color:var(--muted); }
+
+  /* 🎯 悬浮搜索下拉菜单 */
+  .search-dropdown{
+    position:absolute; top:44px; left:0; right:0;
+    background:rgba(255,255,255,0.98);
+    backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px);
+    border:1px solid var(--panel-border); border-radius:8px;
+    box-shadow:0 12px 32px rgba(60,70,90,0.12), 0 2px 8px rgba(60,70,90,0.06);
+    max-height:360px; overflow:hidden; display:none; z-index:50;
+  }
+  .search-dropdown.show{ display:block; }
+  .sd-header{
+    padding:8px 12px; font-size:11px; color:var(--muted); letter-spacing:.5px;
+    border-bottom:1px solid var(--panel-border); background:rgba(250,249,245,0.6);
+  }
+  .sd-body{ max-height:320px; overflow-y:auto; padding:4px; }
+  .sd-empty{ padding:18px 12px; text-align:center; font-size:12px; color:var(--muted); }
+  .search-dropdown .result{ padding:8px 10px; border-radius:5px; }
+  .search-dropdown .result:hover{ background:rgba(45,92,75,0.06); }
+
+  /* Detail panel */
+  .detail-empty{font-size:13px;color:var(--muted);text-align:center;padding:24px 8px;line-height:1.7}
+  .detail .node-title{font-size:16px;font-weight:600;margin-bottom:6px}
+  .detail .node-type{display:inline-block;font-size:11px;padding:2px 8px;border-radius:4px;color:#fff;margin-bottom:12px;}
+  .detail .meta{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;font-size:12px}
+  .detail .meta .k{color:var(--muted)}
+  .detail .meta .v{color:var(--ink);word-break:break-all}
+  
+  /* 邻接谱系样式层 */
+  .neighbors{margin-top:14px}
+  .neighbors h4{margin:0 0 6px 0;font-size:11px;color:var(--ink-soft);letter-spacing:1px}
+  .neighbor{display:flex;align-items:center;gap:8px;padding:6px;border-radius:4px;cursor:pointer;font-size:12px;transition:background .15s;}
+  .neighbor:hover{background:rgba(0,0,0,0.03)}
+  .neighbor .dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
+  .neighbor .nname{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink);}
+  .neighbor .nrel{font-size:11px;color:var(--muted);margin-left:auto;}
+
+  .scale{
+    position:absolute;right:18px;bottom:18px;font-size:11px;color:var(--muted);
+    background:#fff;border:1px solid var(--panel-border);border-radius:6px;padding:6px 10px;box-shadow:var(--shadow);z-index:5;
+  }
+  .tooltip{
+    position:absolute;pointer-events:none;background:rgba(44,62,80,0.95);color:#fff;
+    padding:6px 10px;border-radius:4px;font-size:11px;opacity:0;transition:opacity .15s;
+    z-index:20;white-space:nowrap;box-shadow:0 4px 12px rgba(0,0,0,0.15);
+  }
+  .kbadg{background:rgba(0,0,0,0.04);padding:1px 5px;border-radius:3px;font-family:monospace;font-size:11px;color:var(--ink-soft)}
+  ::-webkit-scrollbar{width:4px;height:4px}
+  ::-webkit-scrollbar-thumb{background:rgba(0,0,0,0.08);border-radius:4px}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">
+    <div class="seal"></div>
+    <div class="title-block">
+      <h1>张謇八大资源知识图谱</h1>
+      <div class="sub">ZHANG JIAN · KNOWLEDGE GRAPH PLATFORM</div>
+    </div>
+  </div>
+  <div class="search-wrap">
+    <div class="search">
+      <input id="searchInput" type="text" placeholder="搜索人物、机构、文献数据…" autocomplete="off" />
+      <button id="searchBtn" title="搜索">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+      </button>
+      <div class="search-dropdown" id="searchDropdown">
+        <div class="sd-header" id="sdHeader">输入关键词以搜索节点</div>
+        <div class="sd-body" id="sdBody"></div>
+      </div>
+    </div>
+  </div>
+  <div class="actions">
+    <button class="btn" id="helpBtn" title="使用说明">使用说明</button>
+    <button class="btn" id="resetBtn">重置布局</button>
+    <button class="btn primary" id="exportBtn">导出图片</button>
+  </div>
+</div>
+
+<div id="helpModal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(20,30,40,0.45);backdrop-filter:blur(4px);align-items:center;justify-content:center;">
+  <div style="background:#faf9f5;width:min(720px,92vw);max-height:85vh;border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,0.25);display:flex;flex-direction:column;overflow:hidden;border:1px solid rgba(20,40,80,0.08);">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 22px;border-bottom:1px solid rgba(20,40,80,0.08);background:rgba(255,255,255,0.6);">
+      <div style="font-size:16px;font-weight:600;color:#2c3e50;letter-spacing:.5px;">使用说明</div>
+      <button id="helpCloseBtn" style="background:transparent;border:none;font-size:22px;cursor:pointer;color:#5a6b7c;line-height:1;">×</button>
+    </div>
+    <div style="padding:20px 26px;overflow-y:auto;font-size:13.5px;line-height:1.85;color:#2c3e50;">
+      <h3 style="margin:0 0 8px;font-size:15px;color:#2d5c4b;">1. 系统概览</h3>
+      <p style="margin:0 0 16px;">本平台旨在通过可视化技术展现张謇相关历史工业与地方文献的关联网络。数据来源于原始档案及表格数据提取的三元组，力求还原历史资源的多维关系。</p>
+
+      <h3 style="margin:0 0 8px;font-size:15px;color:#2d5c4b;">2. 操作指南</h3>
+      <p style="margin:0 0 6px;"><strong>数据加载：</strong>因本图谱包含约3万多个实体与6万多条关系，首次访问时大数据集载入需一定时间，请在浏览器加载完成后稍作等待。</p>
+      <p style="margin:0 0 6px;"><strong>视图探索：</strong></p>
+      <ul style="margin:0 0 10px 20px;padding:0;">
+        <li><strong>初始视图：</strong>为保证性能，系统默认仅展示关联度最高的核心实体。</li>
+        <li><strong>节点交互：</strong>单击节点可查看详细元数据；搜索节点可展开其深度关联的资源网络。</li>
+        <li><strong>筛选功能：</strong>进行"关系类型筛选"时，建议配合"实体类型"筛选使用。</li>
+      </ul>
+      <p style="margin:0 0 6px;"><strong>快捷操作：</strong></p>
+      <ul style="margin:0 0 16px 20px;padding:0;">
+        <li><strong>力导向控制：</strong>若图谱布局波动剧烈，可使用底部的"冻结/运行"按钮（暂停图标）锁定节点位置，方便阅读细节。</li>
+        <li><strong>视图重置：</strong>按键盘"R"键或点击"重置布局"按钮，可快速回到初始概览状态。</li>
+        <li><strong>图像导出：</strong>通过"导出图片"按钮可将当前视窗保存为本地 PNG 文件。</li>
+      </ul>
+
+      <h3 style="margin:0 0 8px;font-size:15px;color:#2d5c4b;">3. 数据与性能说明</h3>
+      <p style="margin:0 0 6px;"><strong>精度声明：</strong>本图谱数据依据原始 Excel 表格自动分类提取。受限于历史档案的复杂性，少量关系提取或节点分类可能存在偏差，内容仅供学术参考。</p>
+      <p style="margin:0 0 6px;"><strong>性能与兼容性：</strong></p>
+      <ul style="margin:0 0 12px 20px;padding:0;">
+        <li>推荐使用 Chrome、Edge 或 Firefox 最新版本以获得最佳显示效果。</li>
+        <li>搜索与筛选功能涉及大规模实时拓扑计算，操作时如遇短暂延迟请耐心等待。</li>
+        <li>若页面显示异常，请按下 <strong>Ctrl + F5</strong> (Windows) 或 <strong>Cmd + Shift + R</strong> (Mac) 强制刷新缓存。</li>
+      </ul>
+      <p style="margin:14px 0 0;color:#5a6b7c;font-size:13px;">感谢您使用张謇八大资源知识图谱平台，如在探索过程中有学术建议，欢迎随时反馈。</p>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  var m=document.getElementById('helpModal');
+  var b=document.getElementById('helpBtn');
+  var c=document.getElementById('helpCloseBtn');
+  if(b)b.addEventListener('click',function(){m.style.display='flex';});
+  if(c)c.addEventListener('click',function(){m.style.display='none';});
+  if(m)m.addEventListener('click',function(e){if(e.target===m)m.style.display='none';});
+  document.addEventListener('keydown',function(e){if(e.key==='Escape')m.style.display='none';});
+})();
+</script>
+
+<div class="stage">
+  <aside class="left">
+    <div class="card">
+      <h3>实体类型筛选</h3>
+      <div class="type-list" id="typeList"></div>
+      <div class="divider" style="margin:10px 0"></div>
+      <div style="display:flex;gap:6px">
+        <button class="btn ghost" id="selectAll" style="flex:1;height:24px;font-size:11px;padding:0">全选</button>
+        <button class="btn ghost" id="selectNone" style="flex:1;height:24px;font-size:11px;padding:0">清空</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>关系类型筛选</h3>
+      <div class="type-list" id="linkTypeList"></div>
+      <div class="divider" style="margin:10px 0"></div>
+      <div style="display:flex;gap:6px">
+        <button class="btn ghost" id="linkSelectAll" style="flex:1;height:24px;font-size:11px;padding:0">全选</button>
+        <button class="btn ghost" id="linkSelectNone" style="flex:1;height:24px;font-size:11px;padding:0">清空</button>
+      </div>
+    </div>
+
+    <!-- 🎯 简单版快捷提示指南 -->
+    <div class="card">
+      <h3>快捷操作</h3>
+      <div style="display:flex;flex-direction:column;gap:6px;font-size:11px;color:var(--ink-soft);line-height:1.5">
+        <div>• <span class="kbadg">单 击</span> 查看实体详情</div>
+        <div>• <span class="kbadg">双 击</span> 展开关联节点</div>
+        <div>• <span class="kbadg">滚 轮</span> 放大缩小图谱</div>
+        <div>• <span class="kbadg">拖 拽</span> 移动节点位置</div>
+        <div>• <span class="kbadg">按键 R</span> 全局恢复原状</div>
+      </div>
+    </div>
+  </aside>
+
+  <div class="canvas-wrap" id="canvasWrap">
+    <div class="stats">
+      <div class="stat">
+        <div class="label">Nodes · 节点总数</div>
+        <div class="value" id="statNodes">—</div>
+        <div class="delta" id="statNodesVisible">加载中...</div>
+      </div>
+      <div class="stat">
+        <div class="label">Relations · 关系总数</div>
+        <div class="value" id="statLinks">—</div>
+        <div class="delta" id="statLinksVisible">加载中...</div>
+      </div>
+      <div class="stat">
+        <div class="label">Selected · 当前选中</div>
+        <div class="value" id="statSelected">—</div>
+        <div class="delta" id="statSelectedType">暂无选中目标</div>
+      </div>
+    </div>
+
+    <div class="hint" id="loadingHint" style="position:absolute;top:20px;right:20px;z-index:6;font-size:12px;color:var(--ink-soft)">全量大数据载入中...</div>
+    <svg class="graph" id="graph"></svg>
+    
+    <div class="floatbar">
+      <button class="icon-btn" id="zoomIn" title="放大">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+      </button>
+      <button class="icon-btn" id="zoomOut" title="缩小">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+      </button>
+      <button class="icon-btn" id="fitBtn" title="自适应居中">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+      </button>
+      <div style="width:1px;background:var(--panel-border);margin:4px 2px"></div>
+      <button class="icon-btn" id="pauseBtn" title="冻结/运行力导向布局">
+        <svg id="pauseIcon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="5" width="4" height="14"></rect><rect x="14" y="5" width="4" height="14"></rect></svg>
+      </button>
+      <button class="icon-btn" id="labelBtn" title="切换标签显示/隐藏">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+      </button>
+    </div>
+
+    <div class="scale" id="scaleHud">Zoom 100%</div>
+  </div>
+
+  <aside class="right">
+    <div class="card detail" id="detailCard">
+      <h3>节点详情</h3>
+      <div class="detail-empty" id="detailEmpty">点击任意节点查看详细元数据</div>
+      <div id="detailBody" style="display:none"></div>
+    </div>
+    <div class="card">
+      <h3>图谱概况</h3>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:12px">
+        <div><div style="color:var(--muted);font-size:11px">AVG DEGREE</div><div style="font-size:14px;font-weight:600" id="avgDegree">—</div></div>
+        <div><div style="color:var(--muted);font-size:11px">MAX DEGREE</div><div style="font-size:14px;font-weight:600" id="maxDegree">—</div></div>
+        <div><div style="color:var(--muted);font-size:11px">TYPES</div><div style="font-size:14px;font-weight:600" id="typesCount">—</div></div>
+        <div><div style="color:var(--muted);font-size:11px">DENSITY</div><div style="font-size:14px;font-weight:600" id="density">—</div></div>
+      </div>
+    </div>
+    <div class="card">
+      <h3>Top 10 核心实体</h3>
+      <div id="topNodes" style="display:flex;flex-direction:column;gap:4px;font-size:12px"></div>
+    </div>
+  </aside>
+</div>
+
+<div class="tooltip" id="tooltip"></div>
+
+<script>
+// ==================== 🎨 【终极进化版】：学术色谱分配 ====================
+const TYPE_COLORS = {
+  "期刊论文": "#1abc9c", "报纸文章": "#48dbfb", "图书": "#16a085", "学位论文": "#2ecc71", "会议论文": "#a3cb38", "专利": "#27ae60",
+  "机构": "#2c3e50", "机构类": "#34495e", "作者单位": "#4b6584", "学位授予单位": "#778ca3", "刊社": "#1e272e", "出版机构": "#4b7bec", "出版社": "#3d3d3d",
+  "人物": "#f39c12", "人物类": "#f1c40f", "作者": "#e67e22", "导师": "#d35400", "申请人": "#fed330",
+  "关键词": "#bdc3c7", "主题类": "#dcdde1", "文献主题": "#95a5a6", "分类主题": "#7f8c8d", "主题": "#b2bec3", "资源类": "#f5f6fa", "资源": "#f1f2f6",
+  "图片资源": "#0652dd", "影音资源": "#1289a7", "年份": "#778ca3", "时间": "#a5b1c2", "其他": "#8854d0"
+};
+const FALLBACK_PALETTE = ["#1abc9c", "#2c3e50", "#f39c12", "#bdc3c7", "#778ca3"];
+
+const state = {
+  raw: { nodes: [], links: [] },
+  nodes: [], links: [],
+  totalNodes: 0,
+  totalLinks: 0,
+  typeFilter: new Set(),
+  linkTypeFilter: new Set(),
+  typeColor: {},
+  selected: null,
+  showLabels: true,
+  paused: false,
+  searchTerm: "",
+  transform: d3.zoomIdentity,
+  ignoreCanvasClick: false,
+forceFocusNodeId: null,
+forceVisibleIds: new Set()
+};
+
+const visibleNodeIds = new Set();
+let globalDraggedNode = null;
+
+const svg = d3.select("#graph");
+let width = 0, height = 0;
+
+const canvasWrap = d3.select("#canvasWrap");
+canvasWrap.select("canvas").remove();
+const canvas = canvasWrap.append("canvas")
+  .attr("style", "position:absolute; top:0; left:0; width:100%; height:100%; z-index:1; pointer-events:all; cursor:grab;");
+const ctx = canvas.node().getContext("2d");
+
+const tooltip = d3.select("#tooltip");
+
+const zoom = d3.zoom().scaleExtent([0.01, 10]).on("zoom", (e) => {
+  state.transform = e.transform;
+  d3.select("#scaleHud").text(`Zoom ${Math.round(e.transform.k * 100)}%`);
+  tock(); 
+});
+svg.call(zoom);
+
+let simulation = d3.forceSimulation()
+  .force("link", d3.forceLink().id(d => d.id).distance(100).strength(0.2)) 
+  .force("charge", d3.forceManyBody().strength(-50).distanceMax(150))     
+  .force("center", d3.forceCenter(0, 0)) 
+  .force("collide", d3.forceCollide().radius(d => nodeRadius(d) + 4).iterations(1)) 
+  .alphaDecay(0.16); 
+
+function resize() {
+  const wrap = document.getElementById("canvasWrap");
+  width = wrap.clientWidth; height = wrap.clientHeight;
+  const ratio = window.devicePixelRatio || 1;
+  canvas.attr("width", width * ratio).attr("height", height * ratio);
+  ctx.scale(ratio, ratio);
+  svg.attr("viewBox", `0 0 ${width} ${height}`);
+  simulation.force("center", d3.forceCenter(0, 0)); 
+  tock();
+}
+window.addEventListener("resize", resize);
+
+function colorOf(type) { return TYPE_COLORS[type] || FALLBACK_PALETTE[0]; }
+// 极致小圆点定义
+function nodeRadius(d) { return Math.min(10, 3 + Math.sqrt(d._degree || 0) * 0.4); }
+
+function parseTriplesToGraph(triples) {
+  const nameToNodeMap = new Map();
+  const idToNameMapping = {};
+  const rawLinks = [];
+
+  // 第一遍：彻底清洗节点，确保每一个都有合法的 ID 和 name
+  triples.forEach(item => {
+    [item.n, item.m].forEach(node => {
+      if (node && node.elementId) {
+        // 使用可选链 (?.) 和空值合并 (??) 防止 undefined 导致的报错
+        const name = node.properties?.name ?? "未知实体";
+        idToNameMapping[node.elementId] = name;
+
+        if (!nameToNodeMap.has(name)) {
+          nameToNodeMap.set(name, { 
+            id: name, 
+            name: name, 
+            type: node.labels?.[0] ?? "其他", 
+            props: node.properties ?? {} 
+          });
+        }
+      }
+    });
+  });
+
+  // 第二遍：建立连线，必须严格校验 source 和 target 的有效性
+  triples.forEach(item => {
+    if (item.r?.startNodeElementId && item.r?.endNodeElementId) {
+      const sourceName = idToNameMapping[item.r.startNodeElementId];
+      const targetName = idToNameMapping[item.r.endNodeElementId];
+      
+      // 核心修复：只有两个端点都存在，才允许创建连线
+      if (sourceName && targetName && sourceName !== targetName) {
+        const relLabel = item.r.type ?? "关联";
+        // 过滤逻辑保持不变
+        if (!["作者", "出版机构", "出版社", "机构", "人物"].includes(relLabel)) {
+          rawLinks.push({ source: sourceName, target: targetName, label: relLabel });
+        }
+      }
+    }
+  });
+
+  // 统一去重逻辑
+  const linkSeen = new Set();
+  const finalLinks = rawLinks.filter(l => {
+    const pairKey = `${l.source}─${l.label}─${l.target}`;
+    if (linkSeen.has(pairKey)) return false;
+    linkSeen.add(pairKey);
+    return true;
+  });
+
+  return { nodes: Array.from(nameToNodeMap.values()), links: finalLinks };
+}
+
+async function initGraph() {
+  const loadingHint = document.getElementById("loadingHint");
+  
+  try {
+    let allTriples = [];
+    for (let i = 1; i <= 15; i++) {
+      const response = await fetch(`data_part_${i}.json`);
+      if (!response.ok) continue;
+      
+      const rawText = await response.text();
+      try {
+        const partData = JSON.parse(rawText);
+        allTriples = allTriples.concat(partData);
+      } catch (e) {
+        // 🚨 这里会明确告诉你到底是哪个文件坏了
+        console.error(`解析 data_part_${i}.json 失败! 错误位置:`, e);
+        throw new Error(`文件 data_part_${i}.json 格式损坏`);
+      }
+    }
+    
+    loadingHint.style.display = "none";
+    loadGraphData(parseTriplesToGraph(allTriples));
+  } catch (err) {
+    loadingHint.textContent = `加载错误: ${err.message}`;
+  }
+}
+
+function loadGraphData(data){
+  state.raw = { nodes: data.nodes.map(n => ({...n})), links: data.links.map(l => ({...l})) };
+  state.totalNodes = state.raw.nodes.length;
+  state.totalLinks = state.raw.links.length;
+
+  const degMap = {};
+  state.raw.links.forEach(l => {
+    degMap[l.source] = (degMap[l.source] || 0) + 1;
+    degMap[l.target] = (degMap[l.target] || 0) + 1;
+  });
+  state.raw.nodes.forEach(n => { n._degree = degMap[n.id] || 0; });
+
+  const typeSet = new Set(state.raw.nodes.map(n => n.type || "其他"));
+  state.typeFilter = new Set(typeSet);
+
+  const linkTypeSet = new Set(state.raw.links.map(l => l.label || "关联"));
+  state.linkTypeFilter = new Set(linkTypeSet);
+
+  buildTypeList(typeSet);
+  buildLinkTypeList(linkTypeSet); 
+  updateOverviewStats();
+  buildTopNodes();
+  initDragAndClick();
+  applyFilter(true); 
+  fitToScreen();
+}
+
+function buildTypeList(typeSet){
+  const counts = {};
+  state.raw.nodes.forEach(n => { const t = n.type || "其他"; counts[t] = (counts[t] || 0) + 1; });
+  const list = d3.select("#typeList").html("");
+  Array.from(typeSet).sort((a,b) => counts[b] - counts[a]).forEach(t => {
+    const row = list.append("div").attr("class", "type-item").attr("data-type", t);
+    row.append("div").attr("class", "swatch").style("background", colorOf(t));
+    row.append("div").attr("class", "type-name").text(t);
+    row.append("div").attr("class", "type-count").text(counts[t].toLocaleString());
+    row.on("click", () => {
+      if (state.typeFilter.has(t)) state.typeFilter.delete(t); else state.typeFilter.add(t);
+      row.classed("off", !state.typeFilter.has(t));
+      applyFilter(false); 
+    });
+  });
+  document.getElementById("typesCount").textContent = typeSet.size;
+}
+
+function buildLinkTypeList(linkTypeSet) {
+  const counts = {};
+  state.raw.links.forEach(l => { const t = l.label || "关联"; counts[t] = (counts[t] || 0) + 1; });
+  const list = d3.select("#linkTypeList").html("");
+  
+  Array.from(linkTypeSet).sort((a,b) => counts[b] - counts[a]).forEach(t => {
+    const row = list.append("div")
+                    .attr("class", `type-item ${state.linkTypeFilter.has(t) ? "" : "off"}`)
+                    .attr("data-rel", t);
+                    
+    row.append("div").attr("class", "swatch").style("background", "#7f8c8d"); 
+    row.append("div").attr("class", "type-name").text(t);
+    row.append("div").attr("class", "type-count").text(counts[t].toLocaleString());
+
+    row.on("click", () => {
+      // 切换逻辑
+      if (state.linkTypeFilter.has(t)) {
+        state.linkTypeFilter.delete(t);
+        row.classed("off", true);
+      } else {
+        state.linkTypeFilter.add(t);
+        row.classed("off", false);
+      }
+      // 必须只调用这一个过滤函数
+      applyFilter(false);
+    });
+  });
+}
+
+function updateOverviewStats(){
+  document.getElementById("statNodes").textContent = state.totalNodes.toLocaleString();
+  document.getElementById("statLinks").textContent = state.totalLinks.toLocaleString();
+  const degs = state.raw.nodes.map(n => n._degree || 0);
+  const avg = degs.length ? (degs.reduce((a,b)=>a+b,0)/degs.length).toFixed(2) : "0";
+  const mx = degs.length ? Math.max(...degs) : 0;
+  document.getElementById("avgDegree").textContent = avg;
+  document.getElementById("maxDegree").textContent = mx.toLocaleString();
+  const n = state.totalNodes, l = state.totalLinks;
+  const dens = n > 1 ? (2 * l / (n * (n - 1))).toExponential(2) : "0";
+  document.getElementById("density").textContent = dens;
+}
+
+function buildTopNodes(){
+  const sorted = [...state.raw.nodes].sort((a,b) => (b._degree || 0) - (a._degree || 0)).slice(0, 10);
+  const c = d3.select("#topNodes").html("");
+  sorted.forEach(n => {
+    const row = c.append("div").attr("class", "neighbor");
+    row.append("div").attr("class", "dot").style("background", colorOf(n.type || "其他"));
+    row.append("div").style("flex", "1").style("overflow", "hidden").style("text-overflow", "ellipsis").style("white-space", "nowrap").text(n.name);
+    row.append("div").style("color", "var(--muted)").text(n._degree || 0);
+    row.on("click", () => handleNeighborClick(n.id));
+  });
+}
+
+function applyFilter(isInitial = false) {
+  const allowedNodes = state.typeFilter;
+  const allowedLinks = state.linkTypeFilter;
+
+  // 🚀 保留性能优化
+  const INITIAL_LIMIT = 150;
+  const RELOAD_LIMIT = 200;
+
+  // =========================
+  // ① 先过滤关系
+  // =========================
+  let filteredRawLinks = state.raw.links.filter(l => {
+    return allowedLinks.has(l.label || "关联");
+  });
+
+  // =========================
+  // ② 从关系中提取相关节点
+  // =========================
+  const relatedNodeIds = new Set();
+
+  filteredRawLinks.forEach(l => {
+    const sId =
+      typeof l.source === "object"
+        ? l.source.id
+        : l.source;
+
+    const tId =
+      typeof l.target === "object"
+        ? l.target.id
+        : l.target;
+
+    relatedNodeIds.add(sId);
+    relatedNodeIds.add(tId);
+  });
+
+  // =========================
+  // ③ 节点类型过滤
+  // =========================
+let candidateNodes = state.raw.nodes.filter(n => {
+  const passType = allowedNodes.has(n.type || "其他");
+
+  const passRelation =
+    relatedNodeIds.has(n.id) ||
+    n.id === state.forceFocusNodeId; // ⭐关键修复
+
+  return passType && passRelation;
+});
+
+  // =========================
+  // 🚀 保留核心节点限制（性能关键）
+  // =========================
+  const LIMIT = isInitial
+    ? INITIAL_LIMIT
+    : RELOAD_LIMIT;
+
+candidateNodes = candidateNodes
+  .sort((a, b) => (b._degree || 0) - (a._degree || 0));
+
+
+// 强制把搜索节点加入可见区
+if (state.forceFocusNodeId) {
+
+  const focusNodeData = state.raw.nodes.find(
+    n => n.id === state.forceFocusNodeId
+  );
+
+  if (
+    focusNodeData &&
+    !candidateNodes.some(n => n.id === focusNodeData.id)
+  ) {
+    candidateNodes.unshift(focusNodeData);
+  }
+}
+
+candidateNodes = candidateNodes.slice(0, LIMIT);
+
+// 🔥 双击展开时：强制把所有 forceVisibleIds（中心节点 + 邻居）加入可见集
+if (state.forceVisibleIds && state.forceVisibleIds.size) {
+  state.forceVisibleIds.forEach(fid => {
+    if (!candidateNodes.some(n => n.id === fid)) {
+      const fn = state.raw.nodes.find(n => n.id === fid);
+      if (fn) candidateNodes.push(fn);
+    }
+  });
+}
+// 🔥 强制保留当前选中节点（否则详情永远丢）
+if (state.selected) {
+  if (!candidateNodes.some(n => n.id === state.selected.id)) {
+    const keep = state.raw.nodes.find(n => n.id === state.selected.id);
+    if (keep) candidateNodes.unshift(keep);
+  }
+}
+  state.nodes = candidateNodes;
+
+  // =========================
+  // ④ 建立节点映射
+  // =========================
+  const visibleIds = new Set(
+    state.nodes.map(n => n.id)
+  );
+
+  const nodeMap = new Map(
+    state.nodes.map(n => [n.id, n])
+  );
+
+  // =========================
+  // ⑤ 最终边
+  // =========================
+  state.links = filteredRawLinks
+    .map(l => {
+      const sId =
+        typeof l.source === "object"
+          ? l.source.id
+          : l.source;
+
+      const tId =
+        typeof l.target === "object"
+          ? l.target.id
+          : l.target;
+
+      return {
+        source: nodeMap.get(sId),
+        target: nodeMap.get(tId),
+        label: l.label
+      };
+    })
+    .filter(l =>
+      l.source &&
+      l.target &&
+      visibleIds.has(l.source.id) &&
+      visibleIds.has(l.target.id)
+    );
+
+  // =========================
+  // ⑥ 更新统计
+  // =========================
+  document.getElementById("statNodesVisible").textContent =
+    `当前可见 ${state.nodes.length.toLocaleString()}`;
+
+  document.getElementById("statLinksVisible").textContent =
+    `当前可见 ${state.links.length.toLocaleString()}`;
+
+  // =========================
+  // ⑦ 更新力导向
+  // =========================
+  simulation.nodes(state.nodes);
+
+  simulation
+    .force("link")
+    .links(state.links);
+
+  // =========================
+  // 🚀 保留柔和重启
+  // =========================
+  if (!state.paused) {
+    simulation.alpha(0.2).restart();
+  }
+
+  tock();
+}
+
+// 🔑 关键辅助函数：把某节点本身的类型、相邻节点类型、相关关系类型
+// 自动加入到 typeFilter / linkTypeFilter，并同步左侧筛选按钮的高亮状态。
+function ensureNodeAndNeighborsVisible(id) {
+  const node = state.raw.nodes.find(n => n.id === id);
+  if (!node) return;
+
+  // 1) 当前节点的类型必须可见
+  state.typeFilter.add(node.type || "其他");
+
+  // 2) 扫描所有连接到该节点的关系，激活其关系类型 + 邻居类型
+  state.raw.links.forEach(l => {
+    const sId = typeof l.source === "object" ? l.source.id : l.source;
+    const tId = typeof l.target === "object" ? l.target.id : l.target;
+    if (sId === id || tId === id) {
+      state.linkTypeFilter.add(l.label || "关联");
+      const otherId = sId === id ? tId : sId;
+      const otherNode = state.raw.nodes.find(n => n.id === otherId);
+      if (otherNode) state.typeFilter.add(otherNode.type || "其他");
+    }
+  });
+
+  // 3) 同步左侧节点类型按钮的高亮（去掉 .off）
+  document.querySelectorAll("#typeList .type-item").forEach(el => {
+    if (state.typeFilter.has(el.dataset.type)) el.classList.remove("off");
+  });
+  // 4) 同步左侧关系类型按钮的高亮
+  document.querySelectorAll("#linkTypeList .type-item").forEach(el => {
+    if (state.linkTypeFilter.has(el.dataset.rel)) el.classList.remove("off");
+  });
+}
+
+function expandNeighbors(centerNodeId) {
+  // 双击时永久保留该中心节点
+  state.forceFocusNodeId = centerNodeId;
+
+  // 🔑 自动激活相关节点类型 + 关系类型（并同步左侧筛选按钮的样式）
+  ensureNodeAndNeighborsVisible(centerNodeId);
+
+  // 🔥 收集该节点的所有邻居（基于原始 raw.links），并强制可见
+  const NEIGHBOR_LIMIT = 80;
+  const neighborIds = [];
+  state.raw.links.forEach(l => {
+    const sId = typeof l.source === "object" ? l.source.id : l.source;
+    const tId = typeof l.target === "object" ? l.target.id : l.target;
+    if (sId === centerNodeId) neighborIds.push(tId);
+    else if (tId === centerNodeId) neighborIds.push(sId);
+  });
+  const uniqueNeighbors = Array.from(new Set(neighborIds));
+  const totalNeighbors = uniqueNeighbors.length;
+  const shown = uniqueNeighbors.slice(0, NEIGHBOR_LIMIT);
+
+  if (!state.forceVisibleIds) state.forceVisibleIds = new Set();
+  state.forceVisibleIds.clear();
+  state.forceVisibleIds.add(centerNodeId);
+  shown.forEach(id => state.forceVisibleIds.add(id));
+
+  applyFilter(false);
+
+  // 提示展开数量
+  showExpandToast(totalNeighbors, shown.length);
+}
+
+function showExpandToast(total, shown) {
+  let el = document.getElementById("expandToast");
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "expandToast";
+    el.style.cssText = "position:fixed;left:50%;bottom:32px;transform:translateX(-50%);background:rgba(45,92,75,0.92);color:#fff;padding:10px 18px;border-radius:8px;font-size:13px;z-index:9999;box-shadow:0 6px 18px rgba(0,0,0,0.18);pointer-events:none;transition:opacity .3s;opacity:0;";
+    document.body.appendChild(el);
+  }
+  el.textContent = total <= shown
+    ? `已展开全部 ${total} 个相关节点`
+    : `相关节点共 ${total} 个，已展开 ${shown} 个`;
+  el.style.opacity = "1";
+  clearTimeout(el._t);
+  el._t = setTimeout(() => { el.style.opacity = "0"; }, 2400);
+}
+
+
+simulation.on("tick", tock);
+
+function tock() {
+  if (simulation.alpha() < 0.01 && !state.selected && globalDraggedNode === null) return; 
+  if (simulation.alpha() < 0.02) simulation.stop();
+
+  ctx.clearRect(0, 0, width, height);
+  ctx.save();
+  
+  ctx.translate(width / 2 + state.transform.x, height / 2 + state.transform.y);
+  ctx.scale(state.transform.k, state.transform.k);
+
+  // 1. 强化版：渲染线条前，确保 source 和 target 都是定义良好的对象
+  ctx.lineWidth = 0.4; 
+  state.links.forEach(d => {
+    // 增加防御性判断：如果 source 或 target 为 undefined，直接跳过本次渲染
+    if (!d.source || !d.target) return; 
+
+    const isDim = state.selected && !(state.selected.id === (d.source.id || d.source) || state.selected.id === (d.target.id || d.target));
+    ctx.strokeStyle = isDim ? "rgba(200,205,215,0.01)" : "rgba(160,175,190,0.15)";
+    ctx.beginPath();
+    ctx.moveTo(d.source.x, d.source.y);
+    ctx.lineTo(d.target.x, d.target.y);
+    ctx.stroke();
+
+    if (state.transform.k > 0.55 && d.label && !isDim) {
+      ctx.save();
+      ctx.globalAlpha = 0.45;
+      const midX = (d.source.x + d.target.x) / 2;
+      const midY = (d.source.y + d.target.y) / 2;
+      let angle = Math.atan2(d.target.y - d.source.y, d.target.x - d.source.x);
+      if (angle > Math.PI / 2 || angle < -Math.PI / 2) angle -= Math.PI;
+
+      ctx.translate(midX, midY);
+      ctx.rotate(angle);
+      ctx.font = "italic 7.5px sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "bottom";
+      ctx.strokeStyle = "#faf9f5"; 
+      ctx.lineWidth = 2;
+      ctx.strokeText(d.label, 0, -1);
+      ctx.fillStyle = "#7f8c8d"; 
+      ctx.fillText(d.label, 0, -1);
+      ctx.restore();
+    }
+  });
+  
+  // 2. 圆点渲染
+  state.nodes.forEach(d => {
+    const r = nodeRadius(d); 
+    const isSelected = state.selected && state.selected.id === d.id;
+    const isDim = state.selected && !isSelected && !isNeighbor(state.selected.id, d.id);
+
+    ctx.save();
+    const typeStr = d.type || "其他";
+    if (["关键词", "主题类", "文献主题", "分类主题", "主题", "资源类", "资源"].includes(typeStr)) {
+      ctx.globalAlpha = isDim ? 0.02 : 0.35;
+    } else {
+      ctx.globalAlpha = isDim ? 0.04 : 1.0; 
+    }
+    
+    ctx.beginPath();
+    ctx.arc(d.x, d.y, r, 0, 2 * Math.PI);
+    ctx.fillStyle = colorOf(typeStr);
+    ctx.fill();
+    
+    ctx.lineWidth = isSelected ? 2.5 : 1.2;
+    ctx.strokeStyle = isSelected ? "#c89b3c" : "#ffffff";
+    ctx.stroke();
+    ctx.restore();
+  });
+  
+  // 3. 文字标签
+  if (state.showLabels) {
+    ctx.save();
+    ctx.font = "normal 9px sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    
+    state.nodes.forEach(d => {
+      const isSelected = state.selected && state.selected.id === d.id;
+      const isVisibleCore = state.nodes.length < 220 || (d._degree || 0) >= 12;
+
+      if (isSelected || isVisibleCore) {
+        const isDim = state.selected && !isSelected && !isNeighbor(state.selected.id, d.id);
+        ctx.globalAlpha = isDim ? 0.08 : 0.85;
+        
+        const offset = nodeRadius(d) + 8;
+        ctx.strokeStyle = "#faf9f5";
+        ctx.lineWidth = 2.5;
+        ctx.strokeText(d.name, d.x, d.y - offset);
+        ctx.fillStyle = "#34495e"; 
+        ctx.fillText(d.name, d.x, d.y - offset);
+      }
+  });
+    ctx.restore();
+  }
+  ctx.restore();
+}
+
+function isNeighbor(id1, id2) {
+  return state.raw.links.some(l => {
+    const sId = typeof l.source === "object" ? l.source.id : l.source;
+    const tId = typeof l.target === "object" ? l.target.id : l.target;
+    return (sId === id1 && tId === id2) || (sId === id2 && tId === id1);
+  });
+}
+
+function initDragAndClick() {
+  svg.call(d3.drag()
+    .container(svg.node())
+    .subject((e) => {
+      const p = state.transform.invert([e.x - width / 2, e.y - height / 2]);
+      return state.nodes.find(n => {
+        const dx = n.x - p[0], dy = n.y - p[1];
+        return (dx*dx + dy*dy) < (nodeRadius(n)*nodeRadius(n) + 100);
+      });
+    })
+    .on("start", (e) => {
+      if (!e.active && !state.paused) simulation.alphaTarget(0.2).restart();
+      globalDraggedNode = e.subject; 
+      if (globalDraggedNode) { globalDraggedNode.fx = globalDraggedNode.x; globalDraggedNode.fy = globalDraggedNode.y; }
+    })
+    .on("drag", (e) => {
+      if (globalDraggedNode) {
+        const p = state.transform.invert([e.x - width / 2, e.y - height / 2]);
+        globalDraggedNode.fx = p[0]; globalDraggedNode.fy = p[1];
+      }
+    })
+    .on("end", (e) => {
+      if (!e.active) simulation.alphaTarget(0);
+      if (globalDraggedNode) { globalDraggedNode.fx = null; globalDraggedNode.fy = null; globalDraggedNode = null; }
+    })
+  );
+
+  svg.on("click", (e) => {
+    if (e.target.tagName !== "svg") return;
+    if (state.ignoreCanvasClick) { state.ignoreCanvasClick = false; return; }
+    const m = d3.pointer(e);
+    const p = state.transform.invert([m[0] - width / 2, m[1] - height / 2]);
+    const clicked = state.nodes.find(n => {
+      const dx = n.x - p[0], dy = n.y - p[1];
+      return (dx*dx + dy*dy) < (nodeRadius(n)*nodeRadius(n) + 60);
+    });
+    if (clicked) selectNode(clicked); else { state.selected = null; clearHighlight(); tock(); }
+  });
+
+  svg.on("dblclick", (e) => {
+    e.stopPropagation();
+    const m = d3.pointer(e);
+    const p = state.transform.invert([m[0] - width / 2, m[1] - height / 2]);
+    const clicked = state.nodes.find(n => {
+      const dx = n.x - p[0], dy = n.y - p[1];
+      return (dx*dx + dy*dy) < (nodeRadius(n)*nodeRadius(n) + 60);
+    });
+    if (clicked) { expandNeighbors(clicked.id); focusNode(clicked.id); }
+  });
+
+  svg.on("mousemove", (e) => {
+    const m = d3.pointer(e);
+    const p = state.transform.invert([m[0] - width / 2, m[1] - height / 2]);
+    const hovered = state.nodes.find(n => {
+      const dx = n.x - p[0], dy = n.y - p[1];
+      return (dx*dx + dy*dy) < (nodeRadius(n)*nodeRadius(n) + 40);
+    });
+    if (hovered) {
+      tooltip.style("opacity", 1).style("left", (e.clientX + 15) + "px").style("top", (e.clientY + 15) + "px")
+        .html(`<b>${escapeHtml(hovered.name)}</b><br/><span style='opacity:.7'>${escapeHtml(hovered.type)} · 度数 ${hovered._degree}</span>`);
+    } else tooltip.style("opacity", 0);
+  });
+}
+
+function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]))}
+
+function handleNeighborClick(targetId) {
+  if (!targetId) return;
+
+  state.ignoreCanvasClick = true;
+
+  // 清掉旧选中状态（很关键）
+  state.selected = null;
+
+  // 强制保留
+  state.forceFocusNodeId = targetId;
+
+  applyFilter(false);
+
+  setTimeout(() => {
+    const n = state.nodes.find(d => d.id === targetId);
+    if (n) selectNode(n);
+    focusNode(targetId);
+  }, 120);
+}
+
+function selectNode(d){
+  state.selected = d;
+  document.getElementById("statSelected").textContent = d.name;
+  document.getElementById("statSelectedType").textContent = `${d.type} · 关联 ${d._degree}`;
+  document.getElementById("detailEmpty").style.display = "none";
+  const body = document.getElementById("detailBody");
+  body.style.display = "block";
+
+  const neighbors = state.raw.links.filter(l => {
+    const sId = typeof l.source === "object" ? l.source.id : l.source;
+    const tId = typeof l.target === "object" ? l.target.id : l.target;
+    return sId === d.id || tId === d.id;
+  });
+  
+  // 🎯【核心去重机制复活】：创建强力唯一过滤集合，消灭列表中所有由于“多重边”导致的重复前言关系
+  const uniqueSeen = new Set();
+  const filteredNeighbors = [];
+  
+  neighbors.forEach(l => {
+    const sId = typeof l.source === "object" ? l.source.id : l.source;
+    const tId = typeof l.target === "object" ? l.target.id : l.target;
+    const otherId = sId === d.id ? tId : sId;
+    
+    const uniqueKey = `${otherId}─${l.label}`;
+    if (!uniqueSeen.has(uniqueKey)) {
+      uniqueSeen.add(uniqueKey);
+      filteredNeighbors.push({ link: l, targetId: otherId });
+    }
+  });
+
+  // 截取前 40 条非重复关系统一输出
+  const finalDisplayItems = filteredNeighbors.slice(0, 40);
+
+  body.innerHTML = `
+    <div class="node-title">${escapeHtml(d.name)}</div>
+    <span class="node-type" style="background:${colorOf(d.type)}">${escapeHtml(d.type)}</span>
+    <div class="meta">
+      <div class="k">系统唯一标识</div><div class="v">${escapeHtml(d.id)}</div>
+      <div class="k">关联网络边数</div><div class="v">${d._degree || 0}</div>
+      ${d.props ? Object.entries(d.props).filter(([k]) => k !== "name" && k !== "type").map(([k,v]) => `<div class="k">${escapeHtml(k)}</div><div class="v">${escapeHtml(v)}</div>`).join("") : ""}
+    </div>
+    <div class="neighbors">
+      <h4>邻接谱系 (${filteredNeighbors.length})</h4>
+      ${finalDisplayItems.map(item => {
+        const o = state.raw.nodes.find(n => n.id === item.targetId);
+        if (!o) return "";
+        return `
+          <div class="neighbor" data-id="${escapeHtml(o.id)}" onclick="handleNeighborClick(this.getAttribute('data-id'))">
+            <div class="dot" style="background:${colorOf(o.type)}"></div>
+            <div class="nname">${escapeHtml(o.name)}</div>
+            <div class="nrel">${escapeHtml(item.link.label)}</div>
+          </div>`;
+      }).join("")}
+    </div>
+  `;
+
+  tock(); 
+}
+
+function clearHighlight() { state.selected = null; }
+
+function focusNode(id) {
+  const n = state.raw.nodes.find(x => x.id === id);
+  if (!n) return;
+  if (!visibleNodeIds.has(id)) { visibleNodeIds.add(id); applyFilter(false); }
+  const renderableNode = state.nodes.find(x => x.id === id);
+  if (renderableNode) selectNode(renderableNode);
+  const scale = 1.6;
+  const tx = width / 2 - renderableNode.x * scale;
+  const ty = height / 2 - renderableNode.y * scale;
+  svg.transition().duration(750).call(zoom.transform, d3.zoomIdentity.translate(tx - width/2, ty - height/2).scale(scale));
+}
+
+function showOnlyNode(id){
+
+  // 强制保留搜索节点
+  state.forceFocusNodeId = id;
+
+  // 清掉上一次双击展开的强制可见集，避免混入旧邻居
+  if (state.forceVisibleIds) state.forceVisibleIds.clear();
+
+  // 🔑 自动激活该节点类型 + 相关关系类型，无需手动清空左侧筛选
+  ensureNodeAndNeighborsVisible(id);
+
+  applyFilter(false);
+
+  setTimeout(() => {
+    focusNode(id);
+  }, 120);
+}
+
+
+function hideSearchDropdown(){
+  const dd = document.getElementById("searchDropdown");
+  if (dd) dd.classList.remove("show");
+}
+function showSearchDropdown(){
+  const dd = document.getElementById("searchDropdown");
+  if (dd) dd.classList.add("show");
+}
+
+function doSearch(term, autoSelect){
+  state.searchTerm = term;
+  const t = (term || "").trim().toLowerCase();
+  const header = document.getElementById("sdHeader");
+  const body = d3.select("#sdBody").html("");
+  if (!t) {
+    header.textContent = "输入关键词以搜索节点";
+    hideSearchDropdown();
+    tock(); return;
+  }
+  const matched = state.raw.nodes
+    .filter(n => (n.name || "").toLowerCase().includes(t) || (n.type || "").toLowerCase().includes(t))
+    .slice(0, 80);
+  showSearchDropdown();
+  if (matched.length === 0) {
+    header.textContent = "未找到匹配节点";
+    body.append("div").attr("class", "sd-empty").text("请尝试其他关键词");
+    tock(); return;
+  }
+  header.textContent = `匹配 ${matched.length} 个节点`;
+  matched.forEach(m => {
+    const r = body.append("div").attr("class", "result");
+    r.append("div").attr("class", "rdot").style("background", colorOf(m.type));
+    r.append("div").attr("class", "rname").text(m.name);
+    r.append("div").attr("class", "rtype").text(m.type);
+    r.on("click", () => {
+      hideSearchDropdown();
+      showOnlyNode(m.id);
+    });
+  });
+  if (autoSelect && matched[0]) {
+    hideSearchDropdown();
+    showOnlyNode(matched[0].id);
+  }
+}
+
+document.getElementById("searchInput").addEventListener("input", (e) => doSearch(e.target.value, false));
+document.getElementById("searchInput").addEventListener("keydown", (e) => { if (e.key === "Enter") doSearch(e.target.value, true); });
+document.getElementById("searchInput").addEventListener("focus", () => {
+  const v = document.getElementById("searchInput").value;
+  if ((v || "").trim()) showSearchDropdown();
+});
+document.getElementById("searchBtn").addEventListener("click", () => doSearch(document.getElementById("searchInput").value, true));
+document.addEventListener("click", (e) => {
+  if (!e.target.closest(".search")) hideSearchDropdown();
+});
+
+document.getElementById("zoomIn").onclick = () => svg.transition().duration(300).call(zoom.scaleBy, 1.3);
+document.getElementById("zoomOut").onclick = () => svg.transition().duration(300).call(zoom.scaleBy, 1 / 1.3);
+document.getElementById("fitBtn").onclick = () => fitToScreen();
+document.getElementById("resetBtn").onclick = () => {
+
+  state.forceFocusNodeId = null;
+  state.searchTerm = "";
+  state.selected = null;
+
+  applyFilter(false);
+
+  svg.transition()
+    .duration(600)
+    .call(zoom.transform, d3.zoomIdentity);
+
+  state.nodes.forEach(n => {
+    n.fx = null;
+    n.fy = null;
+  });
+
+  simulation.alpha(0.6).restart();
+};
+
+document.getElementById("pauseBtn").onclick = () => {
+  state.paused = !state.paused;
+  if (state.paused) simulation.stop(); else simulation.alpha(0.4).restart();
+  document.getElementById("pauseIcon").innerHTML = state.paused ? '<polygon points="6 4 20 12 6 20 6 4" fill="currentColor"/>' : '<rect x="6" y="5" width="4" height="14"></rect><rect x="14" y="5" width="4" height="14"></rect>';
+};
+document.getElementById("labelBtn").onclick = () => { state.showLabels = !state.showLabels; tock(); };
+
+document.getElementById("selectAll").onclick = () => { document.querySelectorAll("#typeList .type-item").forEach(el => { el.classList.remove("off"); state.typeFilter.add(el.dataset.type); }); applyFilter(false); };
+document.getElementById("selectNone").onclick = () => { document.querySelectorAll("#typeList .type-item").forEach(el => { el.classList.add("off"); }); state.typeFilter.clear(); applyFilter(false); };
+
+document.getElementById("linkSelectAll").onclick = () => { document.querySelectorAll("#linkTypeList .type-item").forEach(el => { el.classList.remove("off"); state.linkTypeFilter.add(el.dataset.rel); }); applyFilter(false); };
+document.getElementById("linkSelectNone").onclick = () => { document.querySelectorAll("#linkTypeList .type-item").forEach(el => { el.classList.add("off"); }); state.linkTypeFilter.clear(); applyFilter(false); };
+
+document.getElementById("exportBtn").onclick = () => {
+  const dataURL = canvas.node().toDataURL("image/png");
+  const a = document.createElement("a"); a.href = dataURL; a.download = "zhangjian-canvas-kg.png"; a.click();
+};
+
+window.addEventListener("keydown", (e) => { 
+  if (e.key === "r" || e.key === "R") { 
+    if (document.activeElement.tagName !== "INPUT") document.getElementById("resetBtn").click(); 
+  } 
+});
+
+function fitToScreen() {
+  if (state.nodes.length === 0) return;
+  const xs = state.nodes.map(n => n.x), ys = state.nodes.map(n => n.y);
+  const minX = Math.min(...xs), maxX = Math.max(...xs), minY = Math.min(...ys), maxY = Math.max(...ys);
+  const w = maxX - minX, h = maxY - minY;
+  const scale = Math.min(width / (w + 120), height / (h + 120), 1.5);
+  const tx = width / 2 - (minX + w / 2) * scale; const ty = height / 2 - (minY + h / 2) * scale;
+  svg.transition().duration(750).call(zoom.transform, d3.zoomIdentity.translate(tx - width/2, ty - height/2).scale(scale));
+}
+
+resize();
+initGraph();
+</script>
+</body>
+</html>
