@@ -579,63 +579,125 @@ function buildTopNodes(){
 function applyFilter(isInitial = false) {
   const allowedNodes = state.typeFilter;
   const allowedLinks = state.linkTypeFilter;
-  
-  // 🚀 极致优化：初始加载只显示 150 个节点，彻底解决卡顿
-  const INITIAL_LIMIT = 150; 
+
+  // 🚀 保留性能优化
+  const INITIAL_LIMIT = 150;
   const RELOAD_LIMIT = 200;
 
-  if (isInitial || visibleNodeIds.size === 0) {
-    visibleNodeIds.clear();
-    const coreNodes = [...state.raw.nodes]
-      .filter(n => allowedNodes.has(n.type || "其他"))
-      .sort((a, b) => (b._degree || 0) - (a._degree || 0))
-      .slice(0, INITIAL_LIMIT); // 改为 150
-    coreNodes.forEach(n => visibleNodeIds.add(n.id));
-  } else {
-    const filteredCore = [...state.raw.nodes]
-      .filter(n => allowedNodes.has(n.type || "其他"))
-      .sort((a, b) => (b._degree || 0) - (a._degree || 0))
-      .slice(0, RELOAD_LIMIT); // 改为 200
-    filteredCore.forEach(n => visibleNodeIds.add(n.id));
-  }
+  // =========================
+  // ① 先过滤关系
+  // =========================
+  let filteredRawLinks = state.raw.links.filter(l => {
+    return allowedLinks.has(l.label || "关联");
+  });
 
-  // 渲染逻辑不变
-  state.nodes = state.raw.nodes.filter(n => visibleNodeIds.has(n.id) && allowedNodes.has(n.type || "其他"));
-  const nodeMap = new Map(state.nodes.map(n => [n.id, n]));
-  
-state.links = state.raw.links
-  .filter(l => {
-    const sId = typeof l.source === "object" ? l.source.id : l.source;
-    const tId = typeof l.target === "object" ? l.target.id : l.target;
+  // =========================
+  // ② 从关系中提取相关节点
+  // =========================
+  const relatedNodeIds = new Set();
 
+  filteredRawLinks.forEach(l => {
+    const sId =
+      typeof l.source === "object"
+        ? l.source.id
+        : l.source;
+
+    const tId =
+      typeof l.target === "object"
+        ? l.target.id
+        : l.target;
+
+    relatedNodeIds.add(sId);
+    relatedNodeIds.add(tId);
+  });
+
+  // =========================
+  // ③ 节点类型过滤
+  // =========================
+  let candidateNodes = state.raw.nodes.filter(n => {
     return (
-      visibleNodeIds.has(sId) &&
-      visibleNodeIds.has(tId) &&
-      allowedLinks.has(l.label || "关联")
+      allowedNodes.has(n.type || "其他") &&
+      relatedNodeIds.has(n.id)
     );
-  })
-  .map(l => {
-    const sId = typeof l.source === "object" ? l.source.id : l.source;
-    const tId = typeof l.target === "object" ? l.target.id : l.target;
+  });
 
-    return {
-      source: nodeMap.get(sId),
-      target: nodeMap.get(tId),
-      label: l.label
-    };
-  })
-  .filter(l => l.source && l.target);
+  // =========================
+  // 🚀 保留核心节点限制（性能关键）
+  // =========================
+  const LIMIT = isInitial
+    ? INITIAL_LIMIT
+    : RELOAD_LIMIT;
 
-  document.getElementById("statNodesVisible").textContent = `当前可见 ${state.nodes.length.toLocaleString()}`;
-  document.getElementById("statLinksVisible").textContent = `当前可见 ${state.links.length.toLocaleString()}`;
+  candidateNodes = candidateNodes
+    .sort((a, b) => (b._degree || 0) - (a._degree || 0))
+    .slice(0, LIMIT);
 
-  // 🚀 性能优化：降低重启时的能量级别，防止布局瞬间剧烈抖动导致内存尖峰
+  state.nodes = candidateNodes;
+
+  // =========================
+  // ④ 建立节点映射
+  // =========================
+  const visibleIds = new Set(
+    state.nodes.map(n => n.id)
+  );
+
+  const nodeMap = new Map(
+    state.nodes.map(n => [n.id, n])
+  );
+
+  // =========================
+  // ⑤ 最终边
+  // =========================
+  state.links = filteredRawLinks
+    .map(l => {
+      const sId =
+        typeof l.source === "object"
+          ? l.source.id
+          : l.source;
+
+      const tId =
+        typeof l.target === "object"
+          ? l.target.id
+          : l.target;
+
+      return {
+        source: nodeMap.get(sId),
+        target: nodeMap.get(tId),
+        label: l.label
+      };
+    })
+    .filter(l =>
+      l.source &&
+      l.target &&
+      visibleIds.has(l.source.id) &&
+      visibleIds.has(l.target.id)
+    );
+
+  // =========================
+  // ⑥ 更新统计
+  // =========================
+  document.getElementById("statNodesVisible").textContent =
+    `当前可见 ${state.nodes.length.toLocaleString()}`;
+
+  document.getElementById("statLinksVisible").textContent =
+    `当前可见 ${state.links.length.toLocaleString()}`;
+
+  // =========================
+  // ⑦ 更新力导向
+  // =========================
   simulation.nodes(state.nodes);
-  simulation.force("link").links(state.links);
-  
+
+  simulation
+    .force("link")
+    .links(state.links);
+
+  // =========================
+  // 🚀 保留柔和重启
+  // =========================
   if (!state.paused) {
-    simulation.alpha(0.2).restart(); // alpha 从 0.4 降到 0.2，动作更柔和
+    simulation.alpha(0.2).restart();
   }
+
   tock();
 }
 
