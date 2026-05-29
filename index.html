@@ -720,12 +720,46 @@ candidateNodes = candidateNodes.slice(0, LIMIT);
 }
 
 function expandNeighbors(centerNodeId) {
-  let appendCount = 0;
+
+  // 双击时永久保留该中心节点
+  state.forceFocusNodeId = centerNodeId;
+
+  // 找邻居
+  const neighborIds = new Set();
+
   state.raw.links.forEach(l => {
-    if (l.source === centerNodeId && !visibleNodeIds.has(l.target)) { visibleNodeIds.add(l.target); appendCount++; }
-    if (l.target === centerNodeId && !visibleNodeIds.has(l.source)) { visibleNodeIds.add(l.source); appendCount++; }
+
+    const sId =
+      typeof l.source === "object"
+        ? l.source.id
+        : l.source;
+
+    const tId =
+      typeof l.target === "object"
+        ? l.target.id
+        : l.target;
+
+    if (sId === centerNodeId) {
+      neighborIds.add(tId);
+    }
+
+    if (tId === centerNodeId) {
+      neighborIds.add(sId);
+    }
   });
-  if (appendCount > 0) applyFilter(false);
+
+  // 把邻居插入候选节点
+  const extraNodes = state.raw.nodes.filter(
+    n => neighborIds.has(n.id)
+  );
+
+  extraNodes.forEach(n => {
+    if (!state.nodes.some(x => x.id === n.id)) {
+      state.nodes.push(n);
+    }
+  });
+
+  applyFilter(false);
 }
 
 simulation.on("tick", tock);
@@ -904,12 +938,17 @@ function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":
 
 function handleNeighborClick(targetId) {
   if (!targetId) return;
-  state.ignoreCanvasClick = true; 
-  if (!visibleNodeIds.has(targetId)) {
-    visibleNodeIds.add(targetId);
-    applyFilter(false);
-  }
-  setTimeout(() => { focusNode(targetId); }, 60);
+
+  state.ignoreCanvasClick = true;
+
+  // 强制显示该节点
+  state.forceFocusNodeId = targetId;
+
+  applyFilter(false);
+
+  setTimeout(() => {
+    focusNode(targetId);
+  }, 80);
 }
 
 function selectNode(d){
@@ -1057,10 +1096,27 @@ document.getElementById("zoomIn").onclick = () => svg.transition().duration(300)
 document.getElementById("zoomOut").onclick = () => svg.transition().duration(300).call(zoom.scaleBy, 1 / 1.3);
 document.getElementById("fitBtn").onclick = () => fitToScreen();
 document.getElementById("resetBtn").onclick = () => {
-  svg.transition().duration(600).call(zoom.transform, d3.zoomIdentity);
-  state.selected = null; state.nodes.forEach(n => { n.fx = null; n.fy = null; });
-  simulation.alpha(0.4).restart();
+
+  // 清除强制聚焦
+  state.forceFocusNodeId = null;
+
+  // 重新应用过滤
+  applyFilter(false);
+
+  svg.transition()
+    .duration(600)
+    .call(zoom.transform, d3.zoomIdentity);
+
+  state.selected = null;
+
+  state.nodes.forEach(n => {
+    n.fx = null;
+    n.fy = null;
+  });
+
+  simulation.alpha(0.6).restart();
 };
+
 document.getElementById("pauseBtn").onclick = () => {
   state.paused = !state.paused;
   if (state.paused) simulation.stop(); else simulation.alpha(0.4).restart();
