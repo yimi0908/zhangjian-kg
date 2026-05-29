@@ -603,10 +603,28 @@ function applyFilter(isInitial = false) {
   state.nodes = state.raw.nodes.filter(n => visibleNodeIds.has(n.id) && allowedNodes.has(n.type || "其他"));
   const nodeMap = new Map(state.nodes.map(n => [n.id, n]));
   
-  state.links = state.raw.links
-    .filter(l => visibleNodeIds.has(l.source) && visibleNodeIds.has(l.target) && allowedLinks.has(l.label || "关联"))
-    .map(l => ({ source: nodeMap.get(l.source), target: nodeMap.get(l.target), label: l.label }))
-    .filter(l => l.source && l.target);
+state.links = state.raw.links
+  .filter(l => {
+    const sId = typeof l.source === "object" ? l.source.id : l.source;
+    const tId = typeof l.target === "object" ? l.target.id : l.target;
+
+    return (
+      visibleNodeIds.has(sId) &&
+      visibleNodeIds.has(tId) &&
+      allowedLinks.has(l.label || "关联")
+    );
+  })
+  .map(l => {
+    const sId = typeof l.source === "object" ? l.source.id : l.source;
+    const tId = typeof l.target === "object" ? l.target.id : l.target;
+
+    return {
+      source: nodeMap.get(sId),
+      target: nodeMap.get(tId),
+      label: l.label
+    };
+  })
+  .filter(l => l.source && l.target);
 
   document.getElementById("statNodesVisible").textContent = `当前可见 ${state.nodes.length.toLocaleString()}`;
   document.getElementById("statLinksVisible").textContent = `当前可见 ${state.links.length.toLocaleString()}`;
