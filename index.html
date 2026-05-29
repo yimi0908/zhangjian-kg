@@ -597,25 +597,30 @@ function applyLinkTypeFilter(relType){
   tock();
 }
 
-function applyFilter(isInitial = false){
+function applyFilter(isInitial = false) {
   const allowedNodes = state.typeFilter;
   const allowedLinks = state.linkTypeFilter;
   
+  // 🚀 极致优化：初始加载只显示 150 个节点，彻底解决卡顿
+  const INITIAL_LIMIT = 150; 
+  const RELOAD_LIMIT = 200;
+
   if (isInitial || visibleNodeIds.size === 0) {
     visibleNodeIds.clear();
     const coreNodes = [...state.raw.nodes]
       .filter(n => allowedNodes.has(n.type || "其他"))
       .sort((a, b) => (b._degree || 0) - (a._degree || 0))
-      .slice(0, 200);
+      .slice(0, INITIAL_LIMIT); // 改为 150
     coreNodes.forEach(n => visibleNodeIds.add(n.id));
   } else {
     const filteredCore = [...state.raw.nodes]
       .filter(n => allowedNodes.has(n.type || "其他"))
       .sort((a, b) => (b._degree || 0) - (a._degree || 0))
-      .slice(0, 350); 
+      .slice(0, RELOAD_LIMIT); // 改为 200
     filteredCore.forEach(n => visibleNodeIds.add(n.id));
   }
 
+  // 渲染逻辑不变
   state.nodes = state.raw.nodes.filter(n => visibleNodeIds.has(n.id) && allowedNodes.has(n.type || "其他"));
   const nodeMap = new Map(state.nodes.map(n => [n.id, n]));
   
@@ -627,9 +632,13 @@ function applyFilter(isInitial = false){
   document.getElementById("statNodesVisible").textContent = `当前可见 ${state.nodes.length.toLocaleString()}`;
   document.getElementById("statLinksVisible").textContent = `当前可见 ${state.links.length.toLocaleString()}`;
 
+  // 🚀 性能优化：降低重启时的能量级别，防止布局瞬间剧烈抖动导致内存尖峰
   simulation.nodes(state.nodes);
   simulation.force("link").links(state.links);
-  if (!state.paused) simulation.alpha(0.4).restart();
+  
+  if (!state.paused) {
+    simulation.alpha(0.2).restart(); // alpha 从 0.4 降到 0.2，动作更柔和
+  }
   tock();
 }
 
