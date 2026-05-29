@@ -447,42 +447,34 @@ function parseTriplesToGraph(triples) {
 
 async function initGraph() {
   const loadingHint = document.getElementById("loadingHint");
-  loadingHint.innerText = "正在加载并清洗数据...";
+  loadingHint.innerText = "正在加载数据...";
   
   try {
     let allTriples = [];
-    const totalParts = 15;
-    
-    for (let i = 1; i <= totalParts; i++) {
-      loadingHint.innerText = `正在处理分片 (${i}/${totalParts})...`;
-      
+    for (let i = 1; i <= 15; i++) {
       const response = await fetch(`data_part_${i}.json`);
-      if (!response.ok) continue;
+      if (!response.ok) throw new Error(`加载分片 ${i} 失败`);
       
       let rawText = await response.text();
       
-      // 🚀 核心：强力清洗非法字符
-      // 1. 将所有单个反斜杠 "\" 替换为双反斜杠 "\\" (转义它们)
-      // 2. 移除所有不可见的控制字符
-      let cleanText = rawText
-        .replace(/\\(?!["\\\/bfnrtu])/g, "\\\\") 
+      // 🚀 核心：使用你之前验证过的那个“稳健”清洗逻辑
+      // 1. 先把反斜杠转义 
+      // 2. 移除控制字符
+      // 3. 解析为 JSON
+      let cleanedText = rawText
+        .replace(/\\(?!["\\\/bfnrtu])/g, "\\\\")
         .replace(/[\u0000-\u001F]+/g, " ");
         
-      try {
-        let partData = JSON.parse(cleanText);
-        allTriples = allTriples.concat(partData);
-      } catch (e) {
-        console.error(`分片 ${i} 解析依然失败，尝试深度修复...`);
-        // 进一步降维打击：如果还不行，把这一块直接视作普通文本处理
-      }
+      let partData = JSON.parse(cleanedText);
+      allTriples = allTriples.concat(partData);
     }
     
-    loadingHint.style.display = "none";
+    document.getElementById("loadingHint").style.display = "none";
     loadGraphData(parseTriplesToGraph(allTriples));
     
   } catch (err) {
-    console.error("❌ 致命加载错误:", err);
-    loadingHint.innerHTML = `<span style="color:red">数据清洗失败，请检查数据源格式: ${err.message}</span>`;
+    console.error("❌ 加载错误:", err);
+    loadingHint.textContent = `解析失败: ${err.message}`;
   }
 }
 
