@@ -447,29 +447,36 @@ function parseTriplesToGraph(triples) {
 
 async function initGraph() {
   const loadingHint = document.getElementById("loadingHint");
-  loadingHint.innerText = "正在加载数据...";
   
   try {
     let allTriples = [];
-    // 假设你有 15 个文件，如果实际生成的数字不同，请修改这里的循环上限
     for (let i = 1; i <= 15; i++) {
       const response = await fetch(`data_part_${i}.json`);
-      if (!response.ok) {
-        console.warn(`跳过不存在的分片: data_part_${i}.json`);
-        continue;
-      }
+      if (!response.ok) continue;
       
-      // 直接解析，不需要任何复杂的正则清洗了
-      const partData = await response.json();
-      allTriples = allTriples.concat(partData);
+      let rawText = await response.text();
+      
+      // 1. 去除文本首尾可能存在的非法空格或不可见字符
+      let cleanText = rawText.trim();
+      
+      // 2. 如果文件内容被意外破坏，这里会抛出更详细的错误
+      try {
+        let partData = JSON.parse(cleanText);
+        allTriples = allTriples.concat(partData);
+      } catch (e) {
+        console.error(`第 ${i} 个文件解析失败:`, e);
+        // 如果出错，把这部分文本打印出来看看它到底长什么样
+        console.log("出错内容预览:", cleanText.substring(0, 100));
+        throw e; // 中断加载
+      }
     }
     
     loadingHint.style.display = "none";
     loadGraphData(parseTriplesToGraph(allTriples));
     
   } catch (err) {
-    console.error("加载失败:", err);
-    loadingHint.textContent = `加载失败: ${err.message}`;
+    console.error("加载致命错误:", err);
+    loadingHint.textContent = `数据结构损坏: ${err.message}`;
   }
 }
 
