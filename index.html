@@ -401,41 +401,46 @@ function parseTriplesToGraph(triples) {
   const idToNameMapping = {};
   const rawLinks = [];
 
+  // 第一遍：彻底清洗节点，确保每一个都有合法的 ID 和 name
   triples.forEach(item => {
     [item.n, item.m].forEach(node => {
       if (node && node.elementId) {
-        const name = node.properties?.name || "未命名";
+        // 使用可选链 (?.) 和空值合并 (??) 防止 undefined 导致的报错
+        const name = node.properties?.name ?? "未知实体";
         idToNameMapping[node.elementId] = name;
 
         if (!nameToNodeMap.has(name)) {
-          const currentType = node.labels?.[0] || "其他";
-          nameToNodeMap.set(name, { id: name, name: name, type: currentType, props: node.properties || {} });
-        } else {
-          const existingNode = nameToNodeMap.get(name);
-          if (node.labels && node.labels[0] && existingNode.type === "其他") existingNode.type = node.labels[0]; 
-          existingNode.props = Object.assign({}, node.properties, existingNode.props);
+          nameToNodeMap.set(name, { 
+            id: name, 
+            name: name, 
+            type: node.labels?.[0] ?? "其他", 
+            props: node.properties ?? {} 
+          });
         }
       }
     });
   });
 
+  // 第二遍：建立连线，必须严格校验 source 和 target 的有效性
   triples.forEach(item => {
-    if (item.r && item.r.startNodeElementId && item.r.endNodeElementId) {
+    if (item.r?.startNodeElementId && item.r?.endNodeElementId) {
       const sourceName = idToNameMapping[item.r.startNodeElementId];
       const targetName = idToNameMapping[item.r.endNodeElementId];
-      if (sourceName && targetName) {
-        const relLabel = item.r.type || "关联";
-        // 🎯 从底层数据中彻底剔除由于录入不合理导致的错误节点标签
-        if (["作者", "出版机构", "出版社", "机构", "人物"].includes(relLabel)) return;
-
-        rawLinks.push({ source: sourceName, target: targetName, label: relLabel });
+      
+      // 核心修复：只有两个端点都存在，才允许创建连线
+      if (sourceName && targetName && sourceName !== targetName) {
+        const relLabel = item.r.type ?? "关联";
+        // 过滤逻辑保持不变
+        if (!["作者", "出版机构", "出版社", "机构", "人物"].includes(relLabel)) {
+          rawLinks.push({ source: sourceName, target: targetName, label: relLabel });
+        }
       }
     }
   });
 
+  // 统一去重逻辑
   const linkSeen = new Set();
   const finalLinks = rawLinks.filter(l => {
-    if (l.source === l.target) return false;
     const pairKey = `${l.source}─${l.label}─${l.target}`;
     if (linkSeen.has(pairKey)) return false;
     linkSeen.add(pairKey);
