@@ -529,24 +529,23 @@ function buildLinkTypeList(linkTypeSet) {
   
   Array.from(linkTypeSet).sort((a,b) => counts[b] - counts[a]).forEach(t => {
     const row = list.append("div")
-                    .attr("class", `type-item ${state.linkTypeFilter.has(t) ? "" : "off"}`) // 初始化时根据状态添加 off
+                    .attr("class", `type-item ${state.linkTypeFilter.has(t) ? "" : "off"}`)
                     .attr("data-rel", t);
                     
     row.append("div").attr("class", "swatch").style("background", "#7f8c8d"); 
     row.append("div").attr("class", "type-name").text(t);
     row.append("div").attr("class", "type-count").text(counts[t].toLocaleString());
 
-    // 🚀 【关键修改】：改为 Toggle 多选逻辑
     row.on("click", () => {
+      // 切换逻辑
       if (state.linkTypeFilter.has(t)) {
         state.linkTypeFilter.delete(t);
-        row.classed("off", true); // UI 变灰
+        row.classed("off", true);
       } else {
         state.linkTypeFilter.add(t);
-        row.classed("off", false); // UI 变亮
+        row.classed("off", false);
       }
-      
-      // 重新执行通用过滤，而不是调用旧的单选过滤函数
+      // 必须只调用这一个过滤函数
       applyFilter(false);
     });
   });
@@ -575,39 +574,6 @@ function buildTopNodes(){
     row.append("div").style("color", "var(--muted)").text(n._degree || 0);
     row.on("click", () => handleNeighborClick(n.id));
   });
-}
-
-function applyLinkTypeFilter(relType){
-  // 根据关系类型重建可见节点集合
-  visibleNodeIds.clear();
-  const allowedNodes = state.typeFilter;
-  const nodeMap = new Map(state.raw.nodes.map(n => [n.id, n]));
-  const matched = state.raw.links.filter(l => (l.label || "关联") === relType);
-  matched.forEach(l => {
-    const s = nodeMap.get(l.source), t = nodeMap.get(l.target);
-    if (s && t && allowedNodes.has(s.type || "其他") && allowedNodes.has(t.type || "其他")) {
-      visibleNodeIds.add(l.source);
-      visibleNodeIds.add(l.target);
-    }
-  });
-  // 限制规模，避免过大
-  if (visibleNodeIds.size > 600) {
-    const degSorted = [...visibleNodeIds].map(id => nodeMap.get(id)).filter(Boolean)
-      .sort((a,b) => (b._degree||0) - (a._degree||0)).slice(0, 600).map(n => n.id);
-    visibleNodeIds.clear();
-    degSorted.forEach(id => visibleNodeIds.add(id));
-  }
-  state.nodes = state.raw.nodes.filter(n => visibleNodeIds.has(n.id) && allowedNodes.has(n.type || "其他"));
-  const nm = new Map(state.nodes.map(n => [n.id, n]));
-  state.links = matched
-    .filter(l => nm.has(l.source) && nm.has(l.target))
-    .map(l => ({ source: nm.get(l.source), target: nm.get(l.target), label: l.label }));
-  document.getElementById("statNodesVisible").textContent = `当前可见 ${state.nodes.length.toLocaleString()}`;
-  document.getElementById("statLinksVisible").textContent = `当前可见 ${state.links.length.toLocaleString()}`;
-  simulation.nodes(state.nodes);
-  simulation.force("link").links(state.links);
-  if (!state.paused) simulation.alpha(0.6).restart();
-  tock();
 }
 
 function applyFilter(isInitial = false) {
