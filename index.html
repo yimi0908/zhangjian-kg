@@ -447,22 +447,20 @@ function parseTriplesToGraph(triples) {
 
 async function initGraph() {
   const loadingHint = document.getElementById("loadingHint");
-  loadingHint.innerText = "正在修复路径格式...";
+  loadingHint.innerText = "正在加载数据...";
   
   try {
     let allTriples = [];
+    // 假设你有 15 个文件，如果实际生成的数字不同，请修改这里的循环上限
     for (let i = 1; i <= 15; i++) {
       const response = await fetch(`data_part_${i}.json`);
-      if (!response.ok) continue;
+      if (!response.ok) {
+        console.warn(`跳过不存在的分片: data_part_${i}.json`);
+        continue;
+      }
       
-      let rawText = await response.text();
-      
-      // 🚀 核心：将单个 "\" 替换为双反斜杠 "\\"
-      // 这条正则的意思是：匹配所有后面没有跟随特殊转义字符的反斜杠，并把它变成 "\\"
-      // 这样 JSON.parse 就会把它识别为普通的文本 "\"，而不会报错
-      let cleanText = rawText.replace(/\\(?!["\\\/bfnrtu])/g, "\\\\");
-      
-      let partData = JSON.parse(cleanText);
+      // 直接解析，不需要任何复杂的正则清洗了
+      const partData = await response.json();
       allTriples = allTriples.concat(partData);
     }
     
@@ -470,8 +468,8 @@ async function initGraph() {
     loadGraphData(parseTriplesToGraph(allTriples));
     
   } catch (err) {
-    console.error("加载错误:", err);
-    loadingHint.innerHTML = `<span style="color:red">数据解析失败: ${err.message}</span>`;
+    console.error("加载失败:", err);
+    loadingHint.textContent = `加载失败: ${err.message}`;
   }
 }
 
