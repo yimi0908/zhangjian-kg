@@ -649,7 +649,13 @@ if (state.forceFocusNodeId) {
 }
 
 candidateNodes = candidateNodes.slice(0, LIMIT);
-
+// 🔥 强制保留当前选中节点（否则详情永远丢）
+if (state.selected) {
+  if (!candidateNodes.some(n => n.id === state.selected.id)) {
+    const keep = state.raw.nodes.find(n => n.id === state.selected.id);
+    if (keep) candidateNodes.unshift(keep);
+  }
+}
   state.nodes = candidateNodes;
 
   // =========================
@@ -941,16 +947,22 @@ function handleNeighborClick(targetId) {
 
   state.ignoreCanvasClick = true;
 
-  // 强制显示该节点
+  // 清掉旧选中状态（很关键）
+  state.selected = null;
+
+  // 强制保留
   state.forceFocusNodeId = targetId;
 
   applyFilter(false);
 
   setTimeout(() => {
+    const n = state.nodes.find(d => d.id === targetId);
+    if (n) selectNode(n);
     focusNode(targetId);
-  }, 80);
+  }, 120);
 }
 
+if (!d) return;
 function selectNode(d){
   state.selected = d;
   document.getElementById("statSelected").textContent = d.name;
@@ -1097,17 +1109,15 @@ document.getElementById("zoomOut").onclick = () => svg.transition().duration(300
 document.getElementById("fitBtn").onclick = () => fitToScreen();
 document.getElementById("resetBtn").onclick = () => {
 
-  // 清除强制聚焦
   state.forceFocusNodeId = null;
+  state.searchTerm = "";
+  state.selected = null;
 
-  // 重新应用过滤
   applyFilter(false);
 
   svg.transition()
     .duration(600)
     .call(zoom.transform, d3.zoomIdentity);
-
-  state.selected = null;
 
   state.nodes.forEach(n => {
     n.fx = null;
