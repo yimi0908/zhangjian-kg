@@ -533,15 +533,15 @@ function buildLinkTypeList(linkTypeSet) {
     row.append("div").attr("class", "type-count").text(counts[t].toLocaleString());
 row.on("click", () => {
 
-  if (state.linkTypeFilter.has(t)) {
-    state.linkTypeFilter.delete(t);
-  } else {
-    state.linkTypeFilter.add(t);
-  }
+  state.linkTypeFilter.clear();
+  state.linkTypeFilter.add(t);
 
-  row.classed("off", !state.linkTypeFilter.has(t));
+  document.querySelectorAll("#linkTypeList .type-item")
+    .forEach(el => el.classList.add("off"));
 
-  applyFilter(false);
+  row.node().classList.remove("off");
+
+  applyLinkTypeFilter(t);
 });
   });
 }
