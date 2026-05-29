@@ -615,12 +615,15 @@ function applyFilter(isInitial = false) {
   // =========================
   // ③ 节点类型过滤
   // =========================
-  let candidateNodes = state.raw.nodes.filter(n => {
-    return (
-      allowedNodes.has(n.type || "其他") &&
-      relatedNodeIds.has(n.id)
-    );
-  });
+let candidateNodes = state.raw.nodes.filter(n => {
+  const passType = allowedNodes.has(n.type || "其他");
+
+  const passRelation =
+    relatedNodeIds.has(n.id) ||
+    n.id === state.forceFocusNodeId; // ⭐关键修复
+
+  return passType && passRelation;
+});
 
   // =========================
   // 🚀 保留核心节点限制（性能关键）
