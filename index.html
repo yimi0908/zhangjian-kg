@@ -349,7 +349,8 @@ const state = {
   paused: false,
   searchTerm: "",
   transform: d3.zoomIdentity,
-  ignoreCanvasClick: false 
+  ignoreCanvasClick: false,
+forceFocusNodeId: null
 };
 
 const visibleNodeIds = new Set();
@@ -628,9 +629,26 @@ function applyFilter(isInitial = false) {
     ? INITIAL_LIMIT
     : RELOAD_LIMIT;
 
-  candidateNodes = candidateNodes
-    .sort((a, b) => (b._degree || 0) - (a._degree || 0))
-    .slice(0, LIMIT);
+candidateNodes = candidateNodes
+  .sort((a, b) => (b._degree || 0) - (a._degree || 0));
+
+
+// 强制把搜索节点加入可见区
+if (state.forceFocusNodeId) {
+
+  const focusNodeData = state.raw.nodes.find(
+    n => n.id === state.forceFocusNodeId
+  );
+
+  if (
+    focusNodeData &&
+    !candidateNodes.some(n => n.id === focusNodeData.id)
+  ) {
+    candidateNodes.unshift(focusNodeData);
+  }
+}
+
+candidateNodes = candidateNodes.slice(0, LIMIT);
 
   state.nodes = candidateNodes;
 
@@ -968,11 +986,15 @@ function focusNode(id) {
 }
 
 function showOnlyNode(id){
-  // 仅保留所选节点：清空可见集合并把所选节点加入，重建图谱
-  visibleNodeIds.clear();
-  visibleNodeIds.add(id);
+
+  // 强制保留搜索节点
+  state.forceFocusNodeId = id;
+
   applyFilter(false);
-  setTimeout(() => focusNode(id), 80);
+
+  setTimeout(() => {
+    focusNode(id);
+  }, 120);
 }
 
 function hideSearchDropdown(){
