@@ -678,19 +678,53 @@ function tock() {
     ctx.lineTo(d.target.x, d.target.y);
     ctx.stroke();
 
-    // ... (后续渲染文字标签代码不变)
-  });
+    if (state.transform.k > 0.55 && d.label && !isDim) {
+      ctx.save();
+      ctx.globalAlpha = 0.45;
+      const midX = (d.source.x + d.target.x) / 2;
+      const midY = (d.source.y + d.target.y) / 2;
+      let angle = Math.atan2(d.target.y - d.source.y, d.target.x - d.source.x);
+      if (angle > Math.PI / 2 || angle < -Math.PI / 2) angle -= Math.PI;
 
-  // 2. 圆点渲染部分也加一个防御性判断
+      ctx.translate(midX, midY);
+      ctx.rotate(angle);
+      ctx.font = "italic 7.5px sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "bottom";
+      ctx.strokeStyle = "#faf9f5"; 
+      ctx.lineWidth = 2;
+      ctx.strokeText(d.label, 0, -1);
+      ctx.fillStyle = "#7f8c8d"; 
+      ctx.fillText(d.label, 0, -1);
+      ctx.restore();
+    }
+  });
+  
+  // 2. 圆点渲染
   state.nodes.forEach(d => {
-    if (d.x === undefined || d.y === undefined) return; // 确保节点坐标存在
     const r = nodeRadius(d); 
-    // ... (后续圆点渲染逻辑)
+    const isSelected = state.selected && state.selected.id === d.id;
+    const isDim = state.selected && !isSelected && !isNeighbor(state.selected.id, d.id);
+
+    ctx.save();
+    const typeStr = d.type || "其他";
+    if (["关键词", "主题类", "文献主题", "分类主题", "主题", "资源类", "资源"].includes(typeStr)) {
+      ctx.globalAlpha = isDim ? 0.02 : 0.35;
+    } else {
+      ctx.globalAlpha = isDim ? 0.04 : 1.0; 
+    }
+    
+    ctx.beginPath();
+    ctx.arc(d.x, d.y, r, 0, 2 * Math.PI);
+    ctx.fillStyle = colorOf(typeStr);
+    ctx.fill();
+    
+    ctx.lineWidth = isSelected ? 2.5 : 1.2;
+    ctx.strokeStyle = isSelected ? "#c89b3c" : "#ffffff";
+    ctx.stroke();
+    ctx.restore();
   });
-
-  ctx.restore();
-}
-
+  
   // 3. 文字标签
   if (state.showLabels) {
     ctx.save();
@@ -713,7 +747,7 @@ function tock() {
         ctx.fillStyle = "#34495e"; 
         ctx.fillText(d.name, d.x, d.y - offset);
       }
-    });
+  });
     ctx.restore();
   }
   ctx.restore();
