@@ -459,29 +459,21 @@ async function initGraph() {
       const response = await fetch(`data_part_${i}.json`);
       if (!response.ok) continue;
       
-      let rawText = await response.text();
-      
-      // 1. 去除文本首尾可能存在的非法空格或不可见字符
-      let cleanText = rawText.trim();
-      
-      // 2. 如果文件内容被意外破坏，这里会抛出更详细的错误
+      const rawText = await response.text();
       try {
-        let partData = JSON.parse(cleanText);
+        const partData = JSON.parse(rawText);
         allTriples = allTriples.concat(partData);
       } catch (e) {
-        console.error(`第 ${i} 个文件解析失败:`, e);
-        // 如果出错，把这部分文本打印出来看看它到底长什么样
-        console.log("出错内容预览:", cleanText.substring(0, 100));
-        throw e; // 中断加载
+        // 🚨 这里会明确告诉你到底是哪个文件坏了
+        console.error(`解析 data_part_${i}.json 失败! 错误位置:`, e);
+        throw new Error(`文件 data_part_${i}.json 格式损坏`);
       }
     }
     
     loadingHint.style.display = "none";
     loadGraphData(parseTriplesToGraph(allTriples));
-    
   } catch (err) {
-    console.error("加载致命错误:", err);
-    loadingHint.textContent = `数据结构损坏: ${err.message}`;
+    loadingHint.textContent = `加载错误: ${err.message}`;
   }
 }
 
